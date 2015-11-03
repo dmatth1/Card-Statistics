@@ -1,11 +1,6 @@
 var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
 
-//var display = document.getElementById("display");
-//display.width = window.innerWidth;
-//canvas.style.top = window.innerHeight - 201;
-//var displayX = display.getContext("2d");
-
 var cards = [];
 var selected = null;
 
@@ -19,6 +14,16 @@ function resize() {
 window.addEventListener('resize', resize, false); resize();
 function render() { // draw to screen here
 }
+
+//Bottom panel to display selected cards
+var display = document.createElement('canvas');
+display.id     = "display";
+display.width  = window.innerWidth;
+display.height = 150;
+display.style.zIndex   = 8;
+document.body.appendChild(display);
+var displayX = display.getContext("2d");
+var displayOffsetX = 0; 
 
 var xOff = canvas.width/13;
 var yOff = canvas.height/4;
@@ -62,6 +67,10 @@ function select(){
 	selectHelper(cards[choose]);
 
 	selected = cards[choose];
+
+	//Displays selected cards in bottom panel
+	displayX.drawImage(selected.source, displayOffsetX, 0, (display.width / 13), display.height);
+	displayOffsetX += (display.width / 13);
 }
 
 function selectHelper(c){
