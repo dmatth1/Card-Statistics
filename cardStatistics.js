@@ -1,13 +1,20 @@
 var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
 
+//var display = document.getElementById("display");
+//display.width = window.innerWidth;
+//canvas.style.top = window.innerHeight - 201;
+//var displayX = display.getContext("2d");
+
 var cards = [];
+var selected = null;
 
 function resize() {
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight-50;
+    canvas.height = window.innerHeight-200;
     canvas.style.top = '50px';
     render();
+
 }
 window.addEventListener('resize', resize, false); resize();
 function render() { // draw to screen here
@@ -39,26 +46,37 @@ function showCards(num, currentX, currentY){
 	source.id = num;
 	source.x = currentX;
 	source.y = currentY;
-	cards[num] = source;
+	cards[num] = new Card(source, currentX, currentY, source.width, source.height);
+	//cards[num] = source;
 	// Render our SVG image to the canvas once it loads.
 	source.onload = function(){
 	    ctx.drawImage(source,currentX,currentY, source.width, source.height);
 	}
 }
 
+//Choose and highlight a random card by button click
 function select(){
 	var choose = Math.round((Math.random() * 51)) + 1;
-	var offsetX = ((choose - 1) % 13) * (canvas.width / 13);
-	var offsetY = Math.round(((choose - 1) / 13)) * (canvas.height / 4);
 
-	ctx.clearRect(offsetX, offsetY, cards[choose].width, cards[choose].height);
-	cards[choose].width = cards[choose].width;
-	cards[choose].height = cards[choose].height;
-	ctx.drawImage(cards[choose],offsetX,offsetY,cards[choose].width, cards[choose].height);
-	ctx.rect(offsetX, offsetY, cards[choose].width, cards[choose].height);
-	ctx.lineWidth = 5;
+	//if(selected != null) repaintCanvas();
+	selectHelper(cards[choose]);
+
+	selected = cards[choose];
+}
+
+function selectHelper(c){
+	ctx.clearRect(c.offSetX, c.offSetY, c.width, c.height);
+	ctx.drawImage(c.source, c.offSetX, c.offSetY, c.width, c.height);
+	ctx.rect(c.offSetX, c.offSetY, c.width, c.height);
+	ctx.lineWidth = 3;
 	ctx.stroke();
-
+}
+function repaintCanvas(){
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	for(var i = 1; i < 53; i++){
+		var c = cards[i];
+		ctx.drawImage(c.source, c.offSetX, c.offSetY, c.width, c.height);
+	};
 }
 
 function getOffset( el ) {
@@ -72,6 +90,44 @@ function getOffset( el ) {
     return { top: _y, left: _x };
 }
 
+function Card (source, offSetX, offSetY, width, height){
+	this.source = source;
+	this.offSetX = offSetX;
+	this.offSetY = offSetY;
+    this.width = width;
+    this.height = height;
+    this.selected = false;
+}
+
+/*class Card {
+  constructor(source, offSetX, offSetY, width, height) {
+  	this.source = source;
+    this.offSetX = offSetX;
+    this.offSetY = offSetY;
+    this.width = width;
+    this.height = height;
+  }
+  
+  get source() {
+  	return this.source;
+  }
+  get offSetX() {
+    return this.offSetX;
+  }
+  get offSetY() {
+  	return this.offSetY;
+  }
+  get width() {
+  	return this.width;
+  }
+  get height() {
+  	return this.height;
+  }
+
+  /*calcArea() {
+    return this.height * this.width;
+  }*/
+//}
 
 /*var x = canvas.width/2;
 var y = canvas.height-30;
