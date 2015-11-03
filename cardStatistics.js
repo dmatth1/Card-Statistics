@@ -2,12 +2,14 @@ var canvas = document.getElementById("myCanvas");
 var ctx = canvas.getContext("2d");
 
 var cards = [];
+var previousCounter = 0;
+var previouslySelected = [];
 var selected = null;
 
 function resize() {
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight-200;
-    canvas.style.top = '50px';
+    canvas.height = window.innerHeight-(window.innerHeight * .2);
+    //canvas.style.top = '50px';
     render();
 
 }
@@ -18,8 +20,10 @@ function render() { // draw to screen here
 //Bottom panel to display selected cards
 var display = document.createElement('canvas');
 display.id     = "display";
-display.width  = window.innerWidth;
-display.height = 150;
+display.width  = window.innerWidth / 2;
+//display.style.position = absolute;
+//display.style.left = window.innerWidth / 2;
+display.height = window.innerHeight * .2 - 25;
 display.style.zIndex   = 8;
 document.body.appendChild(display);
 var displayX = display.getContext("2d");
@@ -67,10 +71,12 @@ function select(){
 	selectHelper(cards[choose]);
 
 	selected = cards[choose];
+	previouslySelected[previousCounter] = cards[choose];
+	previousCounter++;
 
-	//Displays selected cards in bottom panel
-	displayX.drawImage(selected.source, displayOffsetX, 0, (display.width / 13), display.height);
-	displayOffsetX += (display.width / 13);
+	//Displays selected cards in bottom panel in a scrolling display
+	drawPreviouslySelected();
+
 }
 
 function selectHelper(c){
@@ -86,6 +92,15 @@ function repaintCanvas(){
 		var c = cards[i];
 		ctx.drawImage(c.source, c.offSetX, c.offSetY, c.width, c.height);
 	};
+}
+function drawPreviouslySelected(){
+	var tempOffsetX = 0;
+	for(var i = previouslySelected.length - 1; i >= 0; i--){
+		if(previouslySelected.length - i < 14){
+			displayX.drawImage(previouslySelected[i].source, tempOffsetX, 0, (display.width / 13), display.height);		
+			tempOffsetX += display.width / 13;
+		}
+	}
 }
 
 function getOffset( el ) {
