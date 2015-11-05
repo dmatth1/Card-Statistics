@@ -11,6 +11,8 @@ $(function() {
 	var selected = null;
 	var cardBack = null;
 	var cardBackCopy = null;
+	var playerScore = 0;
+	var dealerScore = 0;
 
 	function clear(){
 		dealerCards = [];
@@ -30,30 +32,29 @@ $(function() {
 	$("#start").click(function() {
 		if(!gameStarted && !gamePaused) {
 			$("#start").text("Stop");
-			$("#hit").css("visibility", "visible");
-			$("#stay").css("visibility", "visible");
+			$("button").css("visibility", "visible");
 			$("button").prop("disabled", false);
+			$("#newDeck").prop("disabled", true);
 			gameStarted = true;
 			deal();
 			writeCardStatistics();
 		}
 		else if(gameStarted && gamePaused){
-			$("button").prop("disabled", false);
+			$("button:not(#newDeck)").prop("disabled", false);
 			$("#start").text("Stop");
 			gamePaused = false;
 		}
 		else if(gameStarted && !gamePaused){
-			$("button:not(#start)").prop("disabled", true);
+			$("button:not(#start, #newDeck)").prop("disabled", true);
 			$("#start").text("Start");
 			gamePaused = true;
 		}
 		else{
-			//location.reload();
-			//clear all data instead of reloading
 			gameStarted = true;
 			gamePaused = false;
 			clear();
 			$("button:not(#start)").prop("disabled", false);
+			$("#newDeck").prop("disabled", true);
 			$("#start").text("Stop");
 			deal();
 			writeCardStatistics();
@@ -68,15 +69,37 @@ $(function() {
 		writeCardStatistics();
 	});
 
+	//Stay (stand) function
 	$("#stay").click(function() {
 		stay();
+	});
+
+	//Refresh the deck, beginning from none selected - only available at the beginning of a game
+	$("#newDeck").click(function() {
+		$("#canvasTemp").remove();
+		for(var i = 1; i < cards.length; i++) cards[i].selected = false;
+		var canvasTemp = document.createElement("canvas");
+		canvasTemp.id = "canvasTemp";
+		canvasTemp.width = canvas.width;
+		canvasTemp.height = canvas.height;
+		document.body.appendChild(canvasTemp);
+		$(canvasTemp).css({
+			"position" : "absolute",
+			"top" : topOffsetY,
+			"left" : 0,
+			"z-index" : 100,
+			"background" : "transparent"
+		});
+		var canvasTempX = canvasTemp.getContext("2d");
+		fitTextOnCanvas(canvasTemp, canvasTempX, "Deck Refreshed", "Comic-Sans", 0);
+		$(canvasTemp).delay(1000).fadeOut(750);
 	});
 
 
 	var topOffsetY = $("#myCanvas").position().top;
 	var canvas = document.getElementById("myCanvas");
 	//canvas.style.position = "absolute";
-	//canvas.style.top = 50;
+	//canvas.style.top = topOffsetY;
 	canvas.style.left = 0;
 	canvas.width = window.innerWidth;
 	canvas.height = window.innerHeight - topOffsetY -(window.innerHeight * .3);
@@ -88,7 +111,7 @@ $(function() {
 	document.body.appendChild(panelHeading);
 	$("#panelHeading").width = canvas.width - 70;
 	$("#panelHeading").height = "50px";
-	$("#panelHeading").append("<span id = 'leftPanelHeader'><b>Player</b></span> <span id = 'rightPanelHeader'><b>Dealer</b></span>");
+	$("#panelHeading").append("<b><span id = 'leftPanelHeader'>Player - 0</span> <span id = 'rightPanelHeader'>Dealer - 0</span></b>");
 	$("#leftPanelHeader").css("margin-left", "15%");
 	$("#rightPanelHeader").css("float", "right");
 	$("#rightPanelHeader").css("margin-right", "15%");
@@ -179,31 +202,56 @@ $(function() {
 		// start with a large font size
 		var fontsize = 300;
 
-		// lower the font size until the text fits the canva
+		// lower the font size until the text fits the canvas
 		do{
 			fontsize--;
-			panelChoice.font="bold " + fontsize+"px "+fontface;
-		}while((fontsize >= (canvasChoice.height)))
+			panelChoice.font= fontsize+"px "+fontface;
+		}while((fontsize >= (canvasChoice.height)) || (panelChoice.measureText(text).width >= canvasChoice.width));
 
 		// draw the text
 		panelChoice.fillStyle = "blue";
-		panelChoice.fillText(text, (canvasChoice.width / 2) - (panelChoice.measureText(text).width / 2), fontsize - (fontsize / 8));
+		panelChoice.fillText(text, (canvasChoice.width - panelChoice.measureText(text).width) / 2, fontsize - (fontsize / 8), canvasChoice.width);
 	}
 
-	//Enable to the Use to play another game from the old decks
+	//Record the score of the game and display it to the user
 	function endGame(playerTotal, dealerTotal){
-		if(playerTotal > 21) $("#cardStatsHeader").text("Dealer wins by bust.");
-		else if(dealerTotal > 21) $("#cardStatsHeader").text("Player wins by bust.");
-		else if(playerTotal > dealerTotal) $("#cardStatsHeader").text("Player wins by count.");
-		else if (playerTotal == dealerTotal) $("#cardStatsHeader").text("Tie. Pot is split between Player and Dealer.");
-		else $("#cardStatsHeader").text("Dealer wins by count.");
+		if(playerTotal > 21){
+			dealerScore ++;
+			$("#cardStatsHeader").text("Dealer wins by bust.");
+		}
+		else if(dealerTotal > 21){
+			playerScore ++;
+			$("#cardStatsHeader").text("Player wins by bust.");
+		}
+		else if(playerTotal > dealerTotal){
+			playerScore ++;
+			$("#cardStatsHeader").text("Player wins by count.");
+		}
+		else if (playerTotal == dealerTotal){
+			dealerScore ++;
+			playerScore ++;
+			$("#cardStatsHeader").text("Tie. Pot is split between Player and Dealer.");
+		}
+		else {
+			dealerScore ++;
+			$("#cardStatsHeader").text("Dealer wins by count.");
+		}
 
+		//Output the scores for the player and dealer
+		$("#leftPanelHeader").text("Player - " + playerScore);
+		$("#rightPanelHeader").text("Dealer - " + dealerScore);
+
+		//Clear Card Statistics
 		$("#cardStatsDiv").children().empty();
 
+		//Map to the next game via the #start button
 		gameStarted = false;
 		gamePaused = true;
 		$("button:not(#start)").prop("disabled", true);
 		$("#start").text("Next Game");
+
+		//Enable deck refresh
+		$("#newDeck").prop("disabled", false);
 	}
 
 	//If true, returns dealer total; else player total
