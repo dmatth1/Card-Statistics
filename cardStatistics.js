@@ -13,6 +13,7 @@ $(function() {
 	var cardBackCopy = null;
 	var playerScore = 0;
 	var dealerScore = 0;
+	var hiLoCount = 0;
 
 	function clear(){
 		dealerCards = [];
@@ -66,6 +67,7 @@ $(function() {
 	$("#hit").click(function() {
 		hit(true);
 		hit(false);
+		repaintCanvas();
 		writeCardStatistics();
 	});
 
@@ -93,6 +95,8 @@ $(function() {
 		var canvasTempX = canvasTemp.getContext("2d");
 		fitTextOnCanvas(canvasTemp, canvasTempX, "Deck Refreshed", "Comic-Sans", 0);
 		$(canvasTemp).delay(1000).fadeOut(750);
+		hiLoCount = 0;
+		repaintCanvas();
 	});
 
 
@@ -310,17 +314,18 @@ $(function() {
 			"min-width" : $("#cardStatsDiv").width() / 3
 		});
 
+		//Initialize all quantities to 0
 		var quantities = [];
 		for(var i = 0; i < 13; i++) quantities[i] = 0;
 
-		for(var i = 1; i < 53; i++){
-			if(!cards[i].selected) quantities[i % 13]++;
-		}
-
+		//Count all non-selected card quantities
 		//Determine how many unique cards are left in the deck
 		var cCounter = 0;
 		for(var i = 1; i < cards.length; i++){
-			if(cards[i] != null && !cards[i].selected) cCounter++;
+			if(cards[i] != null && !cards[i].selected){
+				quantities[i % 13]++;
+				cCounter++;
+			}
 		}
 
 		var percentages = [];
@@ -344,6 +349,17 @@ $(function() {
 			else if ((i-2) >  8) $("#cardStatsDivRight").append(percentages[index].cardName + ": " + percentages[index].percentage + "%" + "<br />");
 			else $("#cardStatsDivMid").append(percentages[index].cardName + ": " + percentages[index].percentage + "%" + "<br />");
 		}
+
+		var clear = document.createElement("div");
+		clear.style.clear = "both";
+		cardStatsDiv.appendChild(clear);
+		var hiLoOutput = document.createElement("div");
+		hiLoOutput.id = "hiLoOutput";
+		cardStatsDiv.appendChild(hiLoOutput);
+		$("#hiLoOutput").css({
+			"min-width" : $("#cardStatsDiv").width()
+		});
+		(hiLoCount < 0) ? $("#hiLoOutput").append("<h4>According to HiLo Card Counting, Player should bet.</h4>") : $("#hiLoOutput").append("<h4>According to HiLo Card Counting, Player should not bet.</h4>");
 	}
 
 	function showCards(num, currentX, currentY){
@@ -365,11 +381,13 @@ $(function() {
 
 	//cardBacks[0] = red and cardBacks[1] = blue
 	function loadCardBacks(color){
-		var path = "cards/" + color + ".svg";
+		var path = "cards/" + String(color) + ".svg";
 		cardBack = new Image();
 		cardBack.src = path;
-		cardBack.id = color + "0";
-		//return cardBack;
+		cardBack.id = color;
+		cardBack.onload = function () {
+			repaintCanvas();
+		}
 	}
 
 	function selectPlayerCards(){
@@ -400,6 +418,7 @@ $(function() {
 		loadCardBacks("red");
 		selectPlayerCards();
 		selectDealerCards();
+		repaintCanvas();
 	}
 
 	//Choose and highlight a random card by button click
@@ -448,14 +467,15 @@ $(function() {
 				dealerHolding = true;
 			}
 		}
-		/*ctx.clearRect(selected.offSetX, selected.offSetY, selected.width, selected.height);
-		if(cardBackCopy == null) {
-			cardBack.onload = function () {
-				ctx.drawImage(cardBack, selected.offSetX, selected.offSetY, selected.width, selected.height);
-				cardBackCopy = ctx.getImageData(selected.offSetX, selected.offSetY, selected.width, selected.height);
-			};
+		updateHiLo();
+	}
+
+	function updateHiLo(){
+		if(selected != null){
+			var trueNum = selected.num % 13;
+			if(trueNum == 0 || trueNum == 1 || trueNum >= 10)  hiLoCount ++;
+			else if(trueNum >= 2 && trueNum <= 6) hiLoCount --;
 		}
-		else {ctx.putImageData(cardBackCopy, selected.offSetX, selected.offSetY);}*/
 	}
 
 	function isDealerBehind(){
@@ -477,6 +497,7 @@ $(function() {
 		if(!dealerHolding && isDealerBehind()) {
 			while (isDealerBehind()) {
 				hit(false);
+				repaintCanvas();
 				dealerTotal = getDealerOrPlayerTotal(true);
 			}
 		}
@@ -502,9 +523,13 @@ $(function() {
 	}
 	function repaintCanvas(){
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		for(var i = 1; i < 53; i++){
+		for (var i = 1; i < 53; i++) {
+			cardBackCopy = cardBack;
 			var c = cards[i];
-			ctx.drawImage(c.source, c.offSetX, c.offSetY, c.width, c.height);
+			if (!c.selected)
+				ctx.drawImage(c.source, c.offSetX, c.offSetY, c.width, c.height);
+			else
+				ctx.drawImage(cardBackCopy, c.offSetX, c.offSetY, c.width, c.height);
 		}
 	}
 	function drawPreviouslySelected(canvasChoice, panelChoice, isDealer){
@@ -528,17 +553,6 @@ $(function() {
 		}
 	}
 
-	function getOffset( el ) {
-		var _x = 0;
-		var _y = 0;
-		while( el && !isNaN( el.offsetLeft ) && !isNaN( el.offsetTop ) ) {
-			_x += el.offsetLeft - el.scrollLeft;
-			_y += el.offsetTop - el.scrollTop;
-			el = el.offsetParent;
-		}
-		return { top: _y, left: _x };
-	}
-
 	function Card (source, offSetX, offSetY, width, height, num){
 		this.source = source;
 		this.offSetX = offSetX;
@@ -548,121 +562,4 @@ $(function() {
 		this.num = num;
 		this.selected = false;
 	}
-
-	/*class Card {
-	  constructor(source, offSetX, offSetY, width, height) {
-		this.source = source;
-		this.offSetX = offSetX;
-		this.offSetY = offSetY;
-		this.width = width;
-		this.height = height;
-	  }
-
-	  get source() {
-		return this.source;
-	  }
-	  get offSetX() {
-		return this.offSetX;
-	  }
-	  get offSetY() {
-		return this.offSetY;
-	  }
-	  get width() {
-		return this.width;
-	  }
-	  get height() {
-		return this.height;
-	  }
-
-	  /*calcArea() {
-		return this.height * this.width;
-	  }*/
-	//}
-
-	/*var x = canvas.width/2;
-	var y = canvas.height-30;
-	var dx = 2;
-	var dy = -2;
-
-	var ballRadius = 10;
-
-	var paddleHeight = 10;
-	var paddleWidth = 75;
-	var paddleX = (canvas.width-paddleWidth)/2;
-
-	var rightPressed = false;
-	var leftPressed = false
-
-
-	function drawBall() {
-		ctx.beginPath();
-		ctx.arc(x, y, ballRadius, 0, Math.PI*2);
-		ctx.fillStyle = "#0095DD";
-		ctx.fill();
-		ctx.closePath();
-	}
-
-	function drawPaddle() {
-		ctx.beginPath();
-		ctx.rect(paddleX, canvas.height-paddleHeight, paddleWidth, paddleHeight);
-		ctx.fillStyle = "#0095DD";
-		ctx.fill();
-		ctx.closePath();
-	}
-
-	function draw() {
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		drawBall();
-		drawPaddle();
-		showCards(3);
-
-		x += dx;
-		y += dy;
-		if(x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-			dx = -dx;
-		}
-
-		if(y + dy < ballRadius) {
-			dy = -dy;
-		} else if(y + dy > canvas.height-ballRadius) {
-			if(x > paddleX && x < paddleX + paddleWidth) {
-				dy = -dy;
-			}
-			else {
-				alert("GAME OVER");
-				document.location.reload();
-			}
-		}
-
-		if(rightPressed && paddleX < canvas.width-paddleWidth) {
-			paddleX += 7;
-		}
-		else if(leftPressed && paddleX > 0) {
-			paddleX -= 7;
-		}
-	}
-
-	/*document.addEventListener("keydown", keyDownHandler, false);
-	document.addEventListener("keyup", keyUpHandler, false);
-
-	function keyDownHandler(e) {
-		if(e.keyCode == 39) {
-			rightPressed = true;
-		}
-		else if(e.keyCode == 37) {
-			leftPressed = true;
-		}
-	}
-
-	function keyUpHandler(e) {
-		if(e.keyCode == 39) {
-			rightPressed = false;
-		}
-		else if(e.keyCode == 37) {
-			leftPressed = false;
-		}
-	}*/
-
-	//setInterval(draw);
-
 });
