@@ -157,21 +157,113 @@ $(function() {
 	});
 
 
-	//Called at the end of every round, clears some values in preparation for the next round
-	function clear(){
-		dealerCards = [];
-		dealerIndex = 0;
-		dealerHolding = false;
-		previouslySelected = [];
-		previousCounter = 0;
-		selected = null;
+	//Loads a card and draw it on the main canvas as specified by the parameters
+	function showCards(num, currentX, currentY){
+		var path = "cards/" + String(num) + ".svg";
+		var source = new Image();
+		source.src = path;
 
-		//Clear player and dealer panels
-		playerX.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
-		dealerX.clearRect(0, 0, dealerCanvas.width, dealerCanvas.height);
-		$("#cardStatsHeader").text("Card Statistics");
+		//Set dimensions and location on canvas - unnecessary but nice
+		source.width = canvas.width / 13;
+		source.height = canvas.height / 4;
+		source.id = String(num);
+		source.x = currentX;
+		source.y = currentY;
+
+		//Store new Card object in cards array
+		cards[num] = new Card(source, currentX, currentY, source.width, source.height, num);
+
+		// Render our SVG image to the canvas once it loads.
+		source.onload = function(){
+			ctx.drawImage(source, currentX, currentY, source.width, source.height);
+		}
 	}
 
+
+	//Called at the beginning of a new round/game
+	function deal(){
+		loadCardBacks("red");
+		selectPlayerCards();
+		selectDealerCards();
+		repaintCanvas();
+	}
+
+
+	//Hits for either the dealer or player
+	function hit(isPlayer){
+
+		//All cards already selected
+		if(previouslySelected.length >= (52 - dealerCards.length)){
+			endGame();
+			$("#newDeck").click();
+			return;
+		}
+
+		var choose;
+		if(isPlayer) {
+			choose = Math.round((Math.random() * 51)) + 1;
+			//Exclude already chosen in a while loop
+			while (isAlreadySelected(choose)) {
+				choose = Math.round((Math.random() * 51)) + 1;
+			}
+
+			//Set selected
+			selected = cards[choose];
+			selected.selected = true;
+
+			//Update previouslySelected and draw it for player
+			previouslySelected[previousCounter] = cards[choose];
+			previousCounter++;
+			playerX.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
+			drawPreviouslySelected(playerCanvas, playerX, false);
+		}
+		else{
+			var dealerTotal = getDealerOrPlayerTotal(true);
+
+			//Make sure dealer wants to hit
+			if((dealerTotal >= 0  && dealerTotal < 17)  || (isDealerBehind() && !dealerHolding)){
+				choose = Math.round((Math.random() * 51)) + 1;
+				//Exclude already chosen in a while loop
+				while(isAlreadySelected(choose)){
+					choose = Math.round((Math.random() * 51)) + 1;
+				}
+
+				//Set selected
+				selected = cards[choose];
+				selected.selected = true;
+
+				//Update dealer previouslySelected and draw it for dealer
+				dealerCards[dealerIndex++] = cards[choose];
+				dealerX.clearRect(0, 0, dealerCanvas.width, dealerCanvas.height);
+				drawPreviouslySelected(dealerCanvas, dealerX, true);
+			}
+			else{
+				//If dealer doesn't want to hit, then dealer is now holding
+				dealerHolding = true;
+			}
+		}
+
+		updateHiLo();
+	}
+
+
+	//Called when player clicks Stay. Processes dealer actions and ends the current round
+	function stay(){
+		var dealerTotal = getDealerOrPlayerTotal(true);
+		var playerTotal = getDealerOrPlayerTotal(false);
+
+		//If dealer has not held already and dealer is losing to player, then dealer hits until draw, bust, or win
+		if(!dealerHolding && isDealerBehind()) {
+			while (isDealerBehind()) {
+				hit(false);
+				repaintCanvas();
+				dealerTotal = getDealerOrPlayerTotal(true);
+			}
+		}
+
+		displayTotals(playerTotal, dealerTotal);
+		endGame(playerTotal, dealerTotal);
+	}
 
 
 	//Writes into the cardStatistics div displaying stats for each card type
@@ -191,32 +283,6 @@ $(function() {
 
 		outputPercentages();
 
-	}
-
-
-	//Shows the totals in the player's and dealer's card pile
-	function displayTotals(playerTotal, dealerTotal){
-
-		fitTextOnCanvas(playerCanvas, playerX, String(playerTotal), "Comic-Sans", 0);
-		fitTextOnCanvas(dealerCanvas, dealerX, String(dealerTotal), "Comic-Sans", 0);
-	}
-
-
-	//Helper function to display scores overlaid onto the player and dealer canvas's
-	function fitTextOnCanvas(canvasChoice, panelChoice, text,fontface,yPosition){
-
-		// start with a large font size
-		var fontsize = 300;
-
-		// lower the font size until the text fits the canvas
-		do{
-			fontsize--;
-			panelChoice.font= fontsize+"px "+fontface;
-		}while((fontsize >= (canvasChoice.height)) || (panelChoice.measureText(text).width >= canvasChoice.width));
-
-		// draw the text
-		panelChoice.fillStyle = "blue";
-		panelChoice.fillText(text, (canvasChoice.width - panelChoice.measureText(text).width) / 2, fontsize - (fontsize / 8), canvasChoice.width);
 	}
 
 
@@ -259,6 +325,98 @@ $(function() {
 
 		//Enable deck refresh
 		$("#newDeck").prop("disabled", false);
+	}
+
+
+	//Called at the end of every round, clears some values in preparation for the next round
+	function clear(){
+		dealerCards = [];
+		dealerIndex = 0;
+		dealerHolding = false;
+		previouslySelected = [];
+		previousCounter = 0;
+		selected = null;
+
+		//Clear player and dealer panels
+		playerX.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
+		dealerX.clearRect(0, 0, dealerCanvas.width, dealerCanvas.height);
+		$("#cardStatsHeader").text("Card Statistics");
+	}
+
+
+	/*************************************************************************************
+	 * Classes
+	 */
+
+
+	//Card class for use in the cards[] array
+	function Card (source, offSetX, offSetY, width, height, num){
+		this.source = source;
+		this.offSetX = offSetX;
+		this.offSetY = offSetY;
+		this.width = width;
+		this.height = height;
+		this.num = num;
+		this.selected = false;
+	}
+
+
+	/************************************************************************************
+	 * Helper functions
+	 */
+
+
+	//Load's the cards into the main canvas
+	function loadCards(){
+
+		//Specify offsets for proper canvas orientation
+		var xOff = canvas.width/13;
+		var yOff = canvas.height/4;
+		var currX = 0;
+		var currY = 0;
+
+		//Loop and update offsets while displaying each card on the main canvas
+		for(var i = 1; i <53; i++){
+			if(currX >=  canvas.width){
+				currX = 0;
+				currY += yOff;
+			}
+			showCards(i, currX, currY);
+
+			currX += xOff;
+		}
+	}
+
+
+	//Returns if the selected index choice has already been selected
+	function isAlreadySelected(choose){
+		return (cards[choose].selected) ?  true : false;
+	}
+
+
+	//Shows the totals in the player's and dealer's card pile
+	function displayTotals(playerTotal, dealerTotal){
+
+		fitTextOnCanvas(playerCanvas, playerX, String(playerTotal), "Comic-Sans", 0);
+		fitTextOnCanvas(dealerCanvas, dealerX, String(dealerTotal), "Comic-Sans", 0);
+	}
+
+
+	//Helper function to display scores overlaid onto the player and dealer canvas's
+	function fitTextOnCanvas(canvasChoice, panelChoice, text,fontface,yPosition){
+
+		// start with a large font size
+		var fontsize = 300;
+
+		// lower the font size until the text fits the canvas
+		do{
+			fontsize--;
+			panelChoice.font= fontsize+"px "+fontface;
+		}while((fontsize >= (canvasChoice.height)) || (panelChoice.measureText(text).width >= canvasChoice.width));
+
+		// draw the text
+		panelChoice.fillStyle = "blue";
+		panelChoice.fillText(text, (canvasChoice.width - panelChoice.measureText(text).width) / 2, fontsize - (fontsize / 8), canvasChoice.width);
 	}
 
 
@@ -350,67 +508,6 @@ $(function() {
 		(hiLoCount < 0) ? $("#hiLoOutput").append("<h4>According to HiLo Card Counting, Player should bet.</h4>") : $("#hiLoOutput").append("<h4>According to HiLo Card Counting, Player should not bet.</h4>");
 	}
 
-	
-	//Sets up the UI for displaying card stats
-	function setupCardStatDivs(){
-		//Left portion of cardStatsDiv
-		var cardStatsDivLeft = document.createElement("div");
-		cardStatsDivLeft.id = "cardStatsDivLeft";
-		cardStatsDiv.appendChild(cardStatsDivLeft);
-		$("#cardStatsDivLeft").css({
-			float : "left",
-			"min-width" : $("#cardStatsDiv").width() / 3
-		});
-
-		//Middle portion of cardStatsDiv
-		var cardStatsDivMid = document.createElement("div");
-		cardStatsDivMid.id = "cardStatsDivMid";
-		cardStatsDiv.appendChild(cardStatsDivMid);
-		$("#cardStatsDivMid").css({
-			float : "left",
-			"min-width" : $("#cardStatsDiv").width() / 3
-		});
-
-		//Right portion of cardStatsDiv
-		var cardStatsDivRight = document.createElement("div");
-		cardStatsDivRight.id = "cardStatsDivRight";
-		cardStatsDiv.appendChild(cardStatsDivRight);
-		$("#cardStatsDivRight").css({
-			"min-width" : $("#cardStatsDiv").width() / 3
-		});
-
-		//HiLo portion of cardStatsDiv
-		var clear = document.createElement("div");
-		clear.style.clear = "both";
-		cardStatsDiv.appendChild(clear);
-		var hiLoOutput = document.createElement("div");
-		hiLoOutput.id = "hiLoOutput";
-		cardStatsDiv.appendChild(hiLoOutput);
-	}
-
-
-	//Loads a card and draw it on the main canvas as specified by the parameters
-	function showCards(num, currentX, currentY){
-		var path = "cards/" + String(num) + ".svg";
-		var source = new Image();
-		source.src = path;
-
-		//Set dimensions and location on canvas - unnecessary but nice
-		source.width = canvas.width / 13;
-		source.height = canvas.height / 4;
-		source.id = String(num);
-		source.x = currentX;
-		source.y = currentY;
-
-		//Store new Card object in cards array
-		cards[num] = new Card(source, currentX, currentY, source.width, source.height, num);
-
-		// Render our SVG image to the canvas once it loads.
-		source.onload = function(){
-			ctx.drawImage(source, currentX, currentY, source.width, source.height);
-		}
-	}
-
 
 	//Helper function to load the cardBack according to the color (red or blue)
 	function loadCardBacks(color){
@@ -452,73 +549,6 @@ $(function() {
 	}
 
 
-	//Called at the beginning of a new round/game
-	function deal(){
-		loadCardBacks("red");
-		selectPlayerCards();
-		selectDealerCards();
-		repaintCanvas();
-	}
-
-
-	//Hits for either the dealer or player
-	function hit(isPlayer){
-
-		//All cards already selected
-		if(previouslySelected.length >= (52 - dealerCards.length)){
-			endGame();
-			$("#newDeck").click();
-			return;
-		}
-
-		var choose;
-		if(isPlayer) {
-			choose = Math.round((Math.random() * 51)) + 1;
-			//Exclude already chosen in a while loop
-			while (isAlreadySelected(choose)) {
-				choose = Math.round((Math.random() * 51)) + 1;
-			}
-
-			//Set selected
-			selected = cards[choose];
-			selected.selected = true;
-
-			//Update previouslySelected and draw it for player
-			previouslySelected[previousCounter] = cards[choose];
-			previousCounter++;
-			playerX.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
-			drawPreviouslySelected(playerCanvas, playerX, false);
-		}
-		else{
-			var dealerTotal = getDealerOrPlayerTotal(true);
-
-			//Make sure dealer wants to hit
-			if((dealerTotal >= 0  && dealerTotal < 17)  || (isDealerBehind() && !dealerHolding)){
-				choose = Math.round((Math.random() * 51)) + 1;
-				//Exclude already chosen in a while loop
-				while(isAlreadySelected(choose)){
-					choose = Math.round((Math.random() * 51)) + 1;
-				}
-
-				//Set selected
-				selected = cards[choose];
-				selected.selected = true;
-
-				//Update dealer previouslySelected and draw it for dealer
-				dealerCards[dealerIndex++] = cards[choose];
-				dealerX.clearRect(0, 0, dealerCanvas.width, dealerCanvas.height);
-				drawPreviouslySelected(dealerCanvas, dealerX, true);
-			}
-			else{
-				//If dealer doesn't want to hit, then dealer is now holding
-				dealerHolding = true;
-			}
-		}
-
-		updateHiLo();
-	}
-
-
 	//On each hit update hiLoCount
 	function updateHiLo(){
 		if(selected != null){
@@ -526,43 +556,6 @@ $(function() {
 			if(trueNum == 0 || trueNum == 1 || trueNum >= 10)  hiLoCount ++;
 			else if(trueNum >= 2 && trueNum <= 6) hiLoCount --;
 		}
-	}
-
-
-	//Helper function to output if dealer is ahead/tied or losing to player
-	function isDealerBehind(){
-		var dealerTotal = getDealerOrPlayerTotal(true);
-		var playerTotal = getDealerOrPlayerTotal(false);
-		if (playerTotal > dealerTotal && playerTotal <= 21) return true;
-		else if(dealerTotal >= playerTotal && dealerTotal <= 21) return false;
-		else if (playerTotal > 21) return false;
-		else if(dealerTotal > 21) return false;
-		else return false;
-	}
-
-
-	//Called when player clicks Stay. Processes dealer actions and ends the current round
-	function stay(){
-		var dealerTotal = getDealerOrPlayerTotal(true);
-		var playerTotal = getDealerOrPlayerTotal(false);
-
-		//If dealer has not held already and dealer is losing to player, then dealer hits until draw, bust, or win
-		if(!dealerHolding && isDealerBehind()) {
-			while (isDealerBehind()) {
-				hit(false);
-				repaintCanvas();
-				dealerTotal = getDealerOrPlayerTotal(true);
-			}
-		}
-
-		displayTotals(playerTotal, dealerTotal);
-		endGame(playerTotal, dealerTotal);
-	}
-
-
-	//Returns if the selected index choice has already been selected
-	function isAlreadySelected(choose){
-		return (cards[choose].selected) ?  true : false;
 	}
 
 
@@ -603,38 +596,60 @@ $(function() {
 	}
 
 
-	//Card class for use in the cards[] array
-	function Card (source, offSetX, offSetY, width, height, num){
-		this.source = source;
-		this.offSetX = offSetX;
-		this.offSetY = offSetY;
-		this.width = width;
-		this.height = height;
-		this.num = num;
-		this.selected = false;
+	//Helper function to output if dealer is ahead/tied or losing to player
+	function isDealerBehind(){
+		var dealerTotal = getDealerOrPlayerTotal(true);
+		var playerTotal = getDealerOrPlayerTotal(false);
+		if (playerTotal > dealerTotal && playerTotal <= 21) return true;
+		else if(dealerTotal >= playerTotal && dealerTotal <= 21) return false;
+		else if (playerTotal > 21) return false;
+		else if(dealerTotal > 21) return false;
+		else return false;
 	}
 
 
-	//Load's the cards into the main canvas
-	function loadCards(){
+	/************************************************************************************
+	 * UI rendering functions
+	 */
 
-		//Specify offsets for proper canvas orientation
-		var xOff = canvas.width/13;
-		var yOff = canvas.height/4;
-		var currX = 0;
-		var currY = 0;
 
-		//Loop and update offsets while displaying each card on the main canvas
-		for(var i = 1; i <53; i++){
-			if(currX >=  canvas.width){
-				currX = 0;
-				currY += yOff;
-			}
-			showCards(i, currX, currY);
+	//Sets up the UI for displaying card stats
+	function setupCardStatDivs(){
+		//Left portion of cardStatsDiv
+		var cardStatsDivLeft = document.createElement("div");
+		cardStatsDivLeft.id = "cardStatsDivLeft";
+		cardStatsDiv.appendChild(cardStatsDivLeft);
+		$("#cardStatsDivLeft").css({
+			float : "left",
+			"min-width" : $("#cardStatsDiv").width() / 3
+		});
 
-			currX += xOff;
-		}
+		//Middle portion of cardStatsDiv
+		var cardStatsDivMid = document.createElement("div");
+		cardStatsDivMid.id = "cardStatsDivMid";
+		cardStatsDiv.appendChild(cardStatsDivMid);
+		$("#cardStatsDivMid").css({
+			float : "left",
+			"min-width" : $("#cardStatsDiv").width() / 3
+		});
+
+		//Right portion of cardStatsDiv
+		var cardStatsDivRight = document.createElement("div");
+		cardStatsDivRight.id = "cardStatsDivRight";
+		cardStatsDiv.appendChild(cardStatsDivRight);
+		$("#cardStatsDivRight").css({
+			"min-width" : $("#cardStatsDiv").width() / 3
+		});
+
+		//HiLo portion of cardStatsDiv
+		var clear = document.createElement("div");
+		clear.style.clear = "both";
+		cardStatsDiv.appendChild(clear);
+		var hiLoOutput = document.createElement("div");
+		hiLoOutput.id = "hiLoOutput";
+		cardStatsDiv.appendChild(hiLoOutput);
 	}
+
 
 	//Sets the UI display dynamically
 	function setDisplay(){
