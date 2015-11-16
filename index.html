@@ -12,11 +12,17 @@
 
 <body>
 <header style = "text-align: center;">
-    Blackjack
-    <button id = "start" type = "select"> Start </button>
+    Blackjack - Place a bet to begin a round.
+    <form id = "betForm" onsubmit = "return false;">
+        <input type = "number" id = "betInput" min = "5" max = "100" value = "5"></input>
+        <input type = "button" id = "betButton" value = "Bet"></input>
+        <span id = "currentBet">Current Bet: 0</span>
+    </form>
+    <!--<button id = "start" type = "select"> Start </button>-->
     <button id = "hit" type = "select" style = "visibility: hidden;"> Hit </button>
     <button id = "stay" type = "select" style = "visibility: hidden;"> Stay </button>
     <button id = "newDeck" type = "select" style = "visibility: visible;" disabled> New Deck</button>
+
 </header>
 <canvas id="myCanvas" width="480" style = "background: #8FBC8F" height="320"></canvas>
 

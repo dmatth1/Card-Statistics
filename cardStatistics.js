@@ -51,6 +51,10 @@ $(function() {
 
 	var topOffsetY = null;				//Y offset due to header
 
+	//Player and dealer both start out with $100
+	var playerMoney = 100;
+	var dealerMoney = 100;
+	var currentPot = 0;
 
 	//Define global canvas's and displays for UI
 	var canvas = document.getElementById("myCanvas");
@@ -62,6 +66,10 @@ $(function() {
 	var cardStats = null;
 	var cardStatsDiv = null;
 
+	//Declare bet button and input
+	var betButton = null;
+	var betInput = null;
+
 
 
 	//Default UI upon loading
@@ -69,15 +77,17 @@ $(function() {
 	loadCards();
 
 
-	//Define the start/stop button actions
-	$("#start").click(function() {
+	//Define the bet/stop button actions
+	$("#betButton").click(function() {
 
 		//Started a new game/round
 		if(!gameStarted && !gamePaused) {
-			$("#start").text("Stop");
+			$("#betButton").text("Stop");
 			$("button").css("visibility", "visible");
 			$("button:not(#newDeck)").prop("disabled", false);
+			$("#betInput").prop("disabled", true);
 			gameStarted = true;
+			betPlayer();
 			deal();
 			writeCardStatistics();
 		}
@@ -85,14 +95,14 @@ $(function() {
 		//Unpause the current round
 		else if(gameStarted && gamePaused){
 			$("button:not(#newDeck)").prop("disabled", false);
-			$("#start").text("Stop");
+			$("#betButton").text("Stop");
 			gamePaused = false;
 		}
 
 		//Pause the current round
 		else if(gameStarted && !gamePaused){
 			$("button:not(#start, #newDeck)").prop("disabled", true);
-			$("#start").text("Start");
+			$("#betButton").text("Start");
 			gamePaused = true;
 		}
 
@@ -103,7 +113,8 @@ $(function() {
 			clear();
 			$("button:not(#start)").prop("disabled", false);
 			$("#newDeck").prop("disabled", true);
-			$("#start").text("Stop");
+			$("#betButton").text("Stop");
+			betPlayer();
 			deal();
 			writeCardStatistics();
 		}
@@ -123,6 +134,7 @@ $(function() {
 	$("#stay").click(function() {
 		stay();
 	});
+
 
 
 	//Refresh the deck, beginning from none selected - only available at the beginning of a game
@@ -266,6 +278,26 @@ $(function() {
 	}
 
 
+	//Called on the bet click - takes the user input
+	function betPlayer(){
+		var userBet = document.getElementById("betInput").value;
+		userBet = parseInt(userBet);
+		if(userBet && userBet >= 5 && playerMoney >= userBet) {
+			playerMoney -= userBet;
+			currentPot += userBet;
+		}
+		renderBet();
+		return false;
+	}
+
+
+	//Bet rendering
+	function renderBet(){
+		document.getElementById("currentBet").innerHTML = "Current Bet: " + parseInt(currentPot);
+		updateScoresBets();
+	}
+
+
 	//Writes into the cardStatistics div displaying stats for each card type
 	function writeCardStatistics() {
 		$("#cardStatsDiv").empty();
@@ -288,45 +320,59 @@ $(function() {
 
 	//Record the score of the game and display it to the user. Then, prep for next round.
 	function endGame(playerTotal, dealerTotal){
-		if(playerTotal > 21){
+		if(playerTotal === 21){
+			playerScore++;
+			$("#cardStatsHeader").text("Player wins $" + currentPot + " by blackjack.");
+			playerMoney += currentPot * 2.5;
+		}
+		else if(playerTotal > 21){
 			dealerScore ++;
-			$("#cardStatsHeader").text("Dealer wins by bust.");
+			$("#cardStatsHeader").text("Dealer wins $" + currentPot + " by bust.");
+			dealerMoney += currentPot;
 		}
 		else if(dealerTotal > 21){
 			playerScore ++;
-			$("#cardStatsHeader").text("Player wins by bust.");
+			$("#cardStatsHeader").text("Player wins $" + currentPot + " by bust.");
+			playerMoney += currentPot * 2;
 		}
 		else if(playerTotal > dealerTotal){
 			playerScore ++;
-			$("#cardStatsHeader").text("Player wins by count.");
+			$("#cardStatsHeader").text("Player wins $" + currentPot + " by count.");
+			playerMoney += currentPot * 2;
 		}
 		else if (playerTotal == dealerTotal){
 			dealerScore ++;
 			playerScore ++;
-			$("#cardStatsHeader").text("Tie. Pot is split between Player and Dealer.");
+			$("#cardStatsHeader").text("Tie. $" + currentPot * 2 + " is split between Player and Dealer.");
+			playerMoney += currentPot;
 		}
 		else {
 			dealerScore ++;
-			$("#cardStatsHeader").text("Dealer wins by count.");
+			$("#cardStatsHeader").text("Dealer wins $" + currentPot + " by count.");
+			dealerMoney += currentPot;
 		}
 
-		//Output the scores for the player and dealer
-		$("#leftPanelHeader").text("Player - " + playerScore);
-		$("#rightPanelHeader").text("Dealer - " + dealerScore);
+		updateScoresBets();
 
 		//Clear Card Statistics
 		$("#cardStatsDiv").children().empty();
 
-		//Map to the next game via the #start button
+		//Map to the next game via the bet button
 		gameStarted = false;
 		gamePaused = true;
-		$("button:not(#start)").prop("disabled", true);
-		$("#start").text("Next Game");
+		$("button:not(#betButton)").prop("disabled", true);
+		$("#betButton").text("Bet");
+		$("#betInput").prop("disabled", false);
 
 		//Enable deck refresh
 		$("#newDeck").prop("disabled", false);
 	}
 
+	function updateScoresBets(){
+		//Output the scores for the player and dealer
+		$("#leftPanelHeader").text("$" + playerMoney + " - Player - " + playerScore);
+		$("#rightPanelHeader").text("$" + dealerMoney + " - Dealer - " + dealerScore);
+	}
 
 	//Called at the end of every round, clears some values in preparation for the next round
 	function clear(){
@@ -336,6 +382,7 @@ $(function() {
 		previouslySelected = [];
 		previousCounter = 0;
 		selected = null;
+		currentPot = 0;
 
 		//Clear player and dealer panels
 		playerX.clearRect(0, 0, playerCanvas.width, playerCanvas.height);
@@ -648,7 +695,16 @@ $(function() {
 		var hiLoOutput = document.createElement("div");
 		hiLoOutput.id = "hiLoOutput";
 		cardStatsDiv.appendChild(hiLoOutput);
+
+
+		//Add and show bet button and textbox
+		/*betInput.max = playerMoney;
+		cardStatsDiv.appendChild(betInput);
+		cardStatsDiv.appendChild(betButton);
+		cardStatsDiv.appendChild(currentPotOutput);*/
 	}
+
+	function test(){return false;}
 
 
 	//Sets the UI display dynamically
@@ -668,7 +724,7 @@ $(function() {
 		document.body.appendChild(panelHeading);
 		$("#panelHeading").width = canvas.width - 70;
 		$("#panelHeading").height = "50px";
-		$("#panelHeading").append("<b><span id = 'leftPanelHeader'>Player - 0</span> <span id = 'rightPanelHeader'>Dealer - 0</span></b>");
+		$("#panelHeading").append("<b><span id = 'leftPanelHeader'>$" + playerMoney + " - Player - 0</span> <span id = 'rightPanelHeader'>$" + dealerMoney + " - Dealer - 0</span></b>");
 		$("#leftPanelHeader").css("margin-left", "15%");
 		$("#rightPanelHeader").css("float", "right");
 		$("#rightPanelHeader").css("margin-right", "15%");
@@ -693,7 +749,8 @@ $(function() {
 		$("#cardStats").css({
 			float : "left",
 			width : 3 * (window.innerWidth / 13),
-			height : bottomPanelHeight
+			height : bottomPanelHeight,
+			overflow: "auto"
 		});
 
 		//Organize cardStats by div
@@ -716,5 +773,21 @@ $(function() {
 		dealerCanvas.style.float = "left";
 		document.body.appendChild(dealerCanvas);
 		dealerX = dealerCanvas.getContext("2d");
+
+		//Bet button and input needs to be instantiated early
+		/*betButton = document.createElement("button");
+		betButton.innerHTML = "Bet";
+		betButton.id = "betButton";
+
+		betInput = document.createElement("input");
+		betInput.type = "number";
+		betInput.min = 0;
+		betInput.max = playerMoney;
+		betInput.style.width = "10%";
+		betInput.value = "0";
+
+		currentPotOutput = document.createElement("span");
+		currentPotOutput.id = "currentPotOutput";
+		currentPotOutput.innerHTML = "Current Pot: 0";*/
 	}
 });
