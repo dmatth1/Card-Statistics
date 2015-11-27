@@ -86,6 +86,7 @@ $(function() {
 			$("button").css("visibility", "visible");
 			$("button:not(#newDeck)").prop("disabled", false);
 			$("#betInput").prop("disabled", true);
+			$("#betButton").prop("disabled", true);
 			gameStarted = true;
 			betPlayer();
 			deal();
@@ -284,7 +285,8 @@ $(function() {
 		userBet = parseInt(userBet);
 		if(userBet && userBet >= 5 && playerMoney >= userBet) {
 			playerMoney -= userBet;
-			currentPot += userBet;
+			dealerMoney -= userBet;
+			currentPot += userBet * 2;
 		}
 		renderBet();
 		return false;
@@ -323,7 +325,7 @@ $(function() {
 		if(playerTotal === 21){
 			playerScore++;
 			$("#cardStatsHeader").text("Player wins $" + currentPot + " by blackjack.");
-			playerMoney += currentPot * 2.5;
+			playerMoney += currentPot * 1.5;
 		}
 		else if(playerTotal > 21){
 			dealerScore ++;
@@ -333,12 +335,12 @@ $(function() {
 		else if(dealerTotal > 21){
 			playerScore ++;
 			$("#cardStatsHeader").text("Player wins $" + currentPot + " by bust.");
-			playerMoney += currentPot * 2;
+			playerMoney += currentPot;
 		}
 		else if(playerTotal > dealerTotal){
 			playerScore ++;
 			$("#cardStatsHeader").text("Player wins $" + currentPot + " by count.");
-			playerMoney += currentPot * 2;
+			playerMoney += currentPot;
 		}
 		else if (playerTotal == dealerTotal){
 			dealerScore ++;
@@ -352,6 +354,8 @@ $(function() {
 			dealerMoney += currentPot;
 		}
 
+		//Output Hi Lo
+		(hiLoCount < 0) ? $("#cardStatsHeader").append(" According to HiLo Card Counting, Player should bet high.") : $("#cardStatsHeader").append(" According to HiLo Card Counting, Player should bet low.");
 		updateScoresBets();
 
 		//Clear Card Statistics
@@ -363,6 +367,7 @@ $(function() {
 		$("button:not(#betButton)").prop("disabled", true);
 		$("#betButton").text("Bet");
 		$("#betInput").prop("disabled", false);
+		$("#betButton").prop("disabled", false);
 
 		//Enable deck refresh
 		$("#newDeck").prop("disabled", false);
@@ -547,12 +552,6 @@ $(function() {
 			else if ((i-2) >  8) $("#cardStatsDivRight").append(percentages[index].cardName + ": " + percentages[index].percentage + "%" + "<br />");
 			else $("#cardStatsDivMid").append(percentages[index].cardName + ": " + percentages[index].percentage + "%" + "<br />");
 		}
-
-		//Display hiLo Count suggestion
-		$("#hiLoOutput").css({
-			"min-width" : $("#cardStatsDiv").width()
-		});
-		(hiLoCount < 0) ? $("#hiLoOutput").append("<h4>According to HiLo Card Counting, Player should bet.</h4>") : $("#hiLoOutput").append("<h4>According to HiLo Card Counting, Player should not bet.</h4>");
 	}
 
 
@@ -603,6 +602,14 @@ $(function() {
 			if(trueNum == 0 || trueNum == 1 || trueNum >= 10)  hiLoCount ++;
 			else if(trueNum >= 2 && trueNum <= 6) hiLoCount --;
 		}
+	}
+
+	//
+	function outputHiLo(){
+		//Display hiLo Count suggestion
+		/*$("#cardStatsHeader").css({
+			"min-width" : $("#cardStatsDiv").width()
+		});*/
 	}
 
 
