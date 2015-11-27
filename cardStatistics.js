@@ -82,13 +82,16 @@ $(function() {
 
 		//Started a new game/round
 		if(!gameStarted && !gamePaused) {
+			if(!betPlayer()){
+				alert("Invalid Bet");
+				return;
+			}
 			$("#betButton").text("Stop");
 			$("button").css("visibility", "visible");
 			$("button:not(#newDeck)").prop("disabled", false);
 			$("#betInput").prop("disabled", true);
 			$("#betButton").prop("disabled", true);
 			gameStarted = true;
-			betPlayer();
 			deal();
 			writeCardStatistics();
 		}
@@ -109,13 +112,16 @@ $(function() {
 
 		//Next Game selected, clear and start next round
 		else{
+			clear();
+			if(!betPlayer()){
+				alert("Invalid Bet");
+				return;
+			}
 			gameStarted = true;
 			gamePaused = false;
-			clear();
 			$("button:not(#start)").prop("disabled", false);
 			$("#newDeck").prop("disabled", true);
 			$("#betButton").text("Stop");
-			betPlayer();
 			deal();
 			writeCardStatistics();
 		}
@@ -286,9 +292,10 @@ $(function() {
 		if(userBet && userBet >= 5 && playerMoney >= userBet) {
 			playerMoney -= userBet;
 			dealerMoney -= userBet;
-			currentPot += userBet * 2;
+			currentPot = userBet * 2;
+			renderBet();
+			return true;
 		}
-		renderBet();
 		return false;
 	}
 
@@ -345,7 +352,7 @@ $(function() {
 		else if (playerTotal == dealerTotal){
 			dealerScore ++;
 			playerScore ++;
-			$("#cardStatsHeader").text("Tie. $" + currentPot * 2 + " is split between Player and Dealer.");
+			$("#cardStatsHeader").text("Tie. $" + currentPot + " is split between Player and Dealer.");
 			playerMoney += currentPot;
 		}
 		else {
